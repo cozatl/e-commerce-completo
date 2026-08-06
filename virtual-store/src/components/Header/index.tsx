@@ -49,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({appName}) => {
             </StyledMenu>
             <div>
                 <h1>{appName}</h1>
-                <img src={images['logo.jpg']} alt="Virtual Store Logo"/>
+                <img src={images['logo.png']} alt="Virtual Store Logo"/>
             </div>
             <div>
                 <i id='cart'><img src={images['cart.jpg']} alt="Cart icon" onClick={handleCartToggle}/></i>

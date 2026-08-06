@@ -16,25 +16,37 @@ const Products = () => {
             "id": 1,
             "name": "Sweater",
             "img": images['sweater.jpg'],
-            "price": 1000
+            "price": 800
         },
         {
             "id": 2,
-            "name": "Sweater",
-            "img": images['sweater.jpg'],
-            "price": 1200
+            "name": "Shirt",
+            "img": images['shirt.jpg'],
+            "price": 600
         },
         {
             "id": 3,
-            "name": "Sweater",
-            "img": images['sweater.jpg'],
-            "price": 1300
+            "name": "Blouse",
+            "img": images['blouse.jpg'],
+            "price": 700
         },
         {
             "id": 4,
-            "name": "Sweater",
-            "img": images['sweater.jpg'],
-            "price": 1100
+            "name": "Hoodie",
+            "img": images['hoodie.jpg'],
+            "price": 800
+        },
+        {
+            "id": 5,
+            "name": "Jeans",
+            "img": images['jeans.jpg'],
+            "price": 600
+        },
+        {
+            "id": 6,
+            "name": "Pants",
+            "img": images['pants.jpg'],
+            "price": 700
         }
     ]
     useEffect(() => {
