@@ -42,14 +42,6 @@ describe('Cart Component', () => {
         { id: 2, name: 'Product 2', price: 15, img:'img2.png', quantity: 10 }
     ]
 
-    const mockTheme = {
-        colors: {
-            btnColor: '#ff0000',
-            whiteColor: '#ffffff',
-            blackColor: '#000000',
-            btnHover: '#00ff00',
-        }
-    }
     it('should render product list correctly', () => {
         const store = mockStore({
             cart: { items: mockCartItems, isCartOpen: true }

@@ -12,12 +12,6 @@ import { BrowserRouter } from 'react-router-dom';
 
 const mockStore = configureStore([]);
 
-const mockImages = {
-  'menu.svg': 'menu-mock.svg',
-  'logo.jpg': 'logo-mock.jpg',
-  'cart.jpg': 'cart-mock.jpg',
-};
-
 type CartElements = {
     isCartOpen: boolean,
     items: CartItem[],

@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { FAILED, IDLE, SUCCEEDED } from "../../store/status";
+import { IDLE } from "../../store/status";
 
 type CheckoutElements = {
     isEnabledCheckout: boolean,

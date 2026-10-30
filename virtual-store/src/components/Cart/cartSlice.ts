@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { FAILED, IDLE, SUCCEEDED } from "../../store/status";
+import { IDLE, SUCCEEDED } from "../../store/status";
 import { CartItem } from "../interfaces/cartParameters";
 
 type CartElements = {

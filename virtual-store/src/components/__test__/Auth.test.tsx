@@ -1,19 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
-import { UserSignUp } from '../interfaces/signUpParameters';
-import { IDLE } from '../../store/status';
 import { ThemeProvider } from 'styled-components';
 import Theme from '../Theme';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import LoginPage from '../Auth';
-import authReducer, { login, logout } from '../Auth/authSlice';
-import { UserLogin } from '../interfaces/authParameters';
-
-const mockStore = configureStore([]);
-
+import authReducer, { logout, restoreSession, tokensRefreshed } from '../Auth/authSlice';
+import { getRefreshToken, setRefreshToken } from '../../lib/tokenStorage';
+import { setAccessTokenGetter, setSessionHandlers } from '../../lib/api';
+import { bodyOf, mockApiRoutes } from '../../lib/__test__/mockAdapter';
+import { loggedIn, makeStore, profile } from './testStore';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -24,156 +21,151 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-type SignUpState = {
-    user: UserSignUp[],
-    status: string,
-    errors: {}
-    
-};
-
-const initialSignupState: SignUpState = {
-    user: [],
-    status: IDLE,
-    errors: {},
-};
-
-type AuthState = {
-    currentUser: UserLogin | null;
-    // status: string,
-    isAuthenticated: boolean;
-    errors: {};
-    
-}
-
-const initialAuthState: AuthState = {
-    currentUser: null,
-    // status: IDLE,
-    isAuthenticated: false,
-    errors: {},
-};
-
-describe('Auth Component', () => {
-  it('should simulate click and dispatch login when user exists', async () => {
-    // Initialize user-event session
-    const user = userEvent.setup();
-    // Define global state which will be read by useSelector
-    const store = mockStore({
-      auth: { isAuthenticated: true },
-    //   cart: { ...initialCartState, items:[{quantity: 5}] },
-      menu: { isOpen: false },
-      signUp: { ...initialSignupState, user:[{user:'admin', password:'admin'}]}
-    });
-
-    const dispatchSpy = vi.spyOn(store, 'dispatch');
+const renderLogin = (store: ReturnType<typeof makeStore>, route: string | { pathname: string; state?: unknown } = '/') =>
     render(
-      <ThemeProvider theme={Theme}>
-        <BrowserRouter>
-        <Provider store={store}>
-            <LoginPage
-            />
-        </Provider>
-        </BrowserRouter>
-      </ThemeProvider>
-    ); 
-
-    const userInput = screen.getByLabelText(/User/i);
-    const passwordInput = screen.getByLabelText(/Password/i);
-    const btnSubmit = screen.getByRole('button', { name: /Log In/i });  // Find Menu Icon
-
-    // Simulate user inputs were filled and ready to be submitted
-    await user.type(userInput, 'admin');
-    await user.type(passwordInput, 'admin');
-
-    // Simulate human clicking interaction
-    await user.click(btnSubmit);
-
-    // Validate that dispatch was executed
-    expect(dispatchSpy).toHaveBeenCalled();
-
-    // Validate that payload has the correct values
-    expect(dispatchSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: expect.stringContaining('login'),
-        payload: {
-          user: 'admin',
-          password: 'admin'
-        }
-      })
+        <ThemeProvider theme={Theme}>
+            <MemoryRouter initialEntries={[route]}>
+                <Provider store={store}>
+                    <LoginPage />
+                </Provider>
+            </MemoryRouter>
+        </ThemeProvider>
     );
 
-    // Validate that navigate('/store') was called after finding the user (NOT USEFUL WHEN TESTING href ELEMENTS)
-    expect(mockNavigate).toHaveBeenCalledWith('/store');
-  });
+beforeEach(() => {
+    localStorage.clear();
+    mockNavigate.mockClear();
+});
 
-  it('should simulate click and dispatch login when user exists', async () => {
-    // Initialize user-event session
-    const user = userEvent.setup();
-    // Define global state which will be read by useSelector
-    const store = mockStore({
-      auth: { isAuthenticated: true },
-    //   cart: { ...initialCartState, items:[{quantity: 5}] },
-      menu: { isOpen: false },
-      signUp: { ...initialSignupState, user:[{user:'admin', password:'admin'}]}
+afterEach(() => {
+    setAccessTokenGetter(() => null);
+    setSessionHandlers({});
+});
+
+describe('Login page', () => {
+    it('logs in against the API, stores the refresh token and loads the profile', async () => {
+        const user = userEvent.setup();
+        const calls = mockApiRoutes((config) =>
+            config.url === '/token'
+                ? { status: 200, data: { access: 'access-1', refresh: 'refresh-1' } }
+                : { status: 200, data: profile }
+        );
+        const store = makeStore();
+        renderLogin(store);
+
+        await user.type(screen.getByLabelText('Email'), 'Jesus@Example.com');
+        await user.type(screen.getByLabelText('Password'), 'Clave-segura-123');
+        await user.click(screen.getByRole('button', { name: /log in/i }));
+
+        await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(true));
+
+        // email is trimmed and lower-cased; the password goes in the body, never in the URL
+        expect(calls[0].url).toBe('/token');
+        expect(bodyOf(calls[0])).toEqual({ email: 'jesus@example.com', password: 'Clave-segura-123' });
+        // the profile request already carries the new access token
+        expect(calls[1].url).toBe('/profile');
+        expect(calls[1].headers.get('Authorization')).toBe('Bearer access-1');
+
+        expect(store.getState().auth.user).toEqual(profile);
+        expect(store.getState().auth.accessToken).toBe('access-1');
+        expect(getRefreshToken()).toBe('refresh-1');
+        // goes to the store by default
+        expect(mockNavigate).toHaveBeenCalledWith('/store', { replace: true });
     });
 
-    const dispatchSpy = vi.spyOn(store, 'dispatch');
-    render(
-      <ThemeProvider theme={Theme}>
-        <BrowserRouter>
-        <Provider store={store}>
-            <LoginPage
-            />
-        </Provider>
-        </BrowserRouter>
-      </ThemeProvider>
-    ); 
+    it('goes back to the page the visitor was trying to open', () => {
+        mockApiRoutes(() => ({ status: 200, data: {} }));
+        const store = makeStore(loggedIn());
+        renderLogin(store, { pathname: '/', state: { from: { pathname: '/checkout' } } });
 
-    const userInput = screen.getByLabelText(/User/i);
-    const passwordInput = screen.getByLabelText(/Password/i);
-    const btnSubmit = screen.getByRole('button', { name: /Log In/i });  // Find Menu Icon
+        expect(mockNavigate).toHaveBeenCalledWith('/checkout', { replace: true });
+    });
 
-    // Simulate user inputs were filled and ready to be submitted
-    await user.type(userInput, 'admin');
-    await user.type(passwordInput, 'admin1');
+    it('shows the API error and keeps the user logged out when credentials are wrong', async () => {
+        const user = userEvent.setup();
+        mockApiRoutes(() => ({ status: 401, data: { detail: 'No active account found with the given credentials' } }));
+        const store = makeStore();
+        renderLogin(store);
 
-    // Simulate human clicking interaction
-    await user.click(btnSubmit);
+        await user.type(screen.getByLabelText('Email'), 'jesus@example.com');
+        await user.type(screen.getByLabelText('Password'), 'mala');
+        await user.click(screen.getByRole('button', { name: /log in/i }));
 
-    // Validate that dispatch was executed
-    expect(dispatchSpy).not.toHaveBeenCalled();
+        expect(await screen.findByRole('alert')).toHaveTextContent('No active account found with the given credentials');
+        expect(store.getState().auth.isAuthenticated).toBe(false);
+        expect(getRefreshToken()).toBeNull();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
 
-  });
-  
-  it('should authenticate the user if credentials are valid while log in', () => {
-    // Initialize user-event session
-    const validUser = { id: 1, user: 'admin', password: 'admin'};
+    it('does not call the API with empty fields', async () => {
+        const user = userEvent.setup();
+        const calls = mockApiRoutes(() => ({ status: 200, data: {} }));
+        renderLogin(makeStore());
 
-    const nextState = authReducer(initialAuthState, login(validUser));
+        await user.click(screen.getByRole('button', { name: /log in/i }));
 
-    expect(nextState.currentUser).toEqual(validUser);
-    expect(nextState.isAuthenticated).toBe(true);
-  });
+        expect(calls).toHaveLength(0);
+    });
+});
 
-  it('shouldn\'t authenticate the user if credentials are invalid while log in', () => {
-    // Initialize user-event session
-    const invalidUser = { id: 1, user: '', password: ''};
+describe('auth slice', () => {
+    const state = (over = {}) => ({ ...authReducer(undefined, { type: '@@init' }), ...over });
 
-    const nextState = authReducer(initialAuthState, login(invalidUser));
+    it('keeps the access token only in memory and clears everything on logout', () => {
+        const logged = state({ user: profile, accessToken: 'a', isAuthenticated: true });
+        const next = authReducer(logged, logout());
 
-    expect(nextState.isAuthenticated).toBe(false);
-  });
+        expect(next.user).toBeNull();
+        expect(next.accessToken).toBeNull();
+        expect(next.isAuthenticated).toBe(false);
+        expect(next.initialized).toBe(true);
+    });
 
-  it('should clean the user and set isAuthenticated to false when logout', () => {
-    // Initialize user-event session
-    const stateAuthenticated = {
-      currentUser: { id: 1, user: 'admin', password: 'admin'},
-      isAuthenticated: true,
-      errors: {}
-    }
-    
-    const nextState = authReducer(stateAuthenticated, logout());
-    
-    expect(nextState.currentUser).toBeNull();
-    expect(nextState.isAuthenticated).toBe(false);
-  });
+    it('stores a refreshed access token', () => {
+        expect(authReducer(state(), tokensRefreshed('new')).accessToken).toBe('new');
+    });
+
+    it('restores the session from the stored refresh token', async () => {
+        setRefreshToken('refresh-1');
+        const calls = mockApiRoutes((config) =>
+            config.url === '/token/refresh'
+                ? { status: 200, data: { access: 'access-2', refresh: 'refresh-2' } }
+                : { status: 200, data: profile }
+        );
+        const store = makeStore();
+
+        await store.dispatch(restoreSession());
+
+        const auth = store.getState().auth;
+        expect(auth.isAuthenticated).toBe(true);
+        expect(auth.initialized).toBe(true);
+        expect(auth.accessToken).toBe('access-2');
+        expect(getRefreshToken()).toBe('refresh-2');
+        expect(calls[1].headers.get('Authorization')).toBe('Bearer access-2');
+    });
+
+    it('finishes initialization without errors when there is nothing to restore', async () => {
+        const calls = mockApiRoutes(() => ({ status: 200, data: {} }));
+        const store = makeStore();
+
+        await store.dispatch(restoreSession());
+
+        const auth = store.getState().auth;
+        expect(auth.initialized).toBe(true);
+        expect(auth.isAuthenticated).toBe(false);
+        expect(auth.error).toBeNull();
+        expect(calls).toHaveLength(0);
+    });
+
+    it('drops an expired stored session silently', async () => {
+        setRefreshToken('expired');
+        mockApiRoutes(() => ({ status: 401, data: { code: 'token_not_valid' } }));
+        const store = makeStore();
+
+        await store.dispatch(restoreSession());
+
+        expect(store.getState().auth.isAuthenticated).toBe(false);
+        expect(store.getState().auth.error).toBeNull();
+        expect(getRefreshToken()).toBeNull();
+    });
 });
