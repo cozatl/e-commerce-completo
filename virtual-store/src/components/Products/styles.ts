@@ -58,3 +58,85 @@ const StyledSectionProducts = styled.section`
 export {
     StyledSectionProducts,
 };
+
+/** Card shared by the catalog and the home page preview. */
+export const StyledProductCard = styled.article<{ $locked?: boolean }>`
+    position: relative;
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    img {
+        opacity: ${({ $locked }) => ($locked ? 0.75 : 1)};
+        object-fit: cover;
+        aspect-ratio: 1 / 1;
+    }
+    a, button {
+        cursor: pointer;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid ${({ theme }) => theme.colors.headerColor};
+        background: ${({ theme }) => theme.colors.bgMenuColor};
+        color: ${({ theme }) => theme.colors.whiteColor};
+        text-decoration: none;
+        font: inherit;
+    }
+    button:disabled {
+        cursor: not-allowed;
+        background: ${({ theme }) => theme.colors.btnDisabledColor};
+    }
+`;
+
+export const StyledBadge = styled.span`
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    background: ${({ theme }) => theme.colors.avatarColor};
+    color: ${({ theme }) => theme.colors.blackColor};
+`;
+
+export const StyledPrice = styled.p`
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    del {
+        opacity: 0.6;
+    }
+`;
+
+export const StyledPager = styled.nav`
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    button {
+        cursor: pointer;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: none;
+        background: ${({ theme }) => theme.colors.bgMenuColor};
+        color: ${({ theme }) => theme.colors.whiteColor};
+        font: inherit;
+    }
+    button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+`;
+
+export const StyledCategoryFilter = styled.div`
+    width: 80%;
+    margin: 20px auto 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    select {
+        padding: 6px 10px;
+        border-radius: 6px;
+        font: inherit;
+    }
+`;
