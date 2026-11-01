@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 import { ThemeProvider } from 'styled-components';
@@ -12,6 +12,10 @@ import { mockApiRoutes } from '../../lib/__test__/mockAdapter';
 import { setAccessTokenGetter } from '../../lib/api';
 import { makeProduct, page } from './productFixtures';
 import type { Category } from '../interfaces/productParameters';
+import { api } from '../../lib/api';
+import type { Cart } from '../interfaces/cartParameters';
+import authReducer from '../Auth/authSlice';
+import type { UserProfile } from '../interfaces/authParameters';
 
 const categories: Category[] = [
     { id: 1, name: 'Phones', slug: 'phones', parent: null, is_active: true },
@@ -28,7 +32,32 @@ const mockCatalog = (products: (params: Record<string, unknown>) => Reply) => {
     return () => calls.filter((c) => c.url === '/products/');
 };
 
-const makeCartStore = () => configureStore({ reducer: { cart: cartReducer } });
+const testUser: UserProfile = {
+    id: 1,
+    email: 'buyer@example.com',
+    full_name: 'Buyer',
+    is_active: true,
+    is_staff: false,
+    is_superuser: false,
+    timestamp: '2026-01-01T00:00:00Z',
+};
+
+const makeCartStore = () => {
+    const reducer = { cart: cartReducer, auth: authReducer };
+    const base = authReducer(undefined, { type: '@@INIT' });
+    return configureStore({
+        reducer,
+        preloadedState: {
+            auth: {
+                ...base,
+                user: testUser,
+                isAuthenticated: true,
+                accessToken: 'token',
+                initialized: true,
+            },
+        },
+    });
+};
 
 const renderProducts = (store = makeCartStore(), route = '/store') =>
     render(
@@ -50,6 +79,10 @@ afterEach(() => {
 });
 
 describe('Products catalog', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();   // undo vi.spyOn(api, 'post') so it does not leak into the next test
+    });
+    
     it('loads the first page from the API and moves to the next one', async () => {
         const user = userEvent.setup();
         const productCalls = mockCatalog((params) =>
@@ -71,20 +104,37 @@ describe('Products catalog', () => {
         expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
     });
 
-    it('adds a product to the cart with its discounted price', async () => {
+    it('adds a product to the cart by slug and keeps the server cart', async () => {
         const user = userEvent.setup();
         mockCatalog(() => ({
             status: 200,
             data: page([makeProduct({ price: '800.00', discount_price: '650.00' })], 1),
         }));
-        const store = makeCartStore();
+        const serverCart: Cart = {
+            id: 1,
+            items: [{
+                id: 5,
+                product: { id: 1, slug: 'sweater', name: 'Sweater', image: null, product_type: 'physical', stock: 10 },
+                quantity: 1,
+                unit_price: '650.00',
+                subtotal: '650.00',
+                max_quantity: 10,
+                problem: null,
+            }],
+            total_quantity: 1,
+            total: '650.00',
+            has_problems: false,
+            updated_at: '2026-10-31T00:00:00Z',
+        };
+        const postSpy = vi.spyOn(api, 'post').mockResolvedValueOnce(serverCart);
+        const store = makeCartStore();   // must include an authenticated auth state (see below)
         renderProducts(store);
 
         await user.click(await screen.findByRole('button', { name: /add to cart/i }));
 
-        expect(store.getState().cart.items).toEqual([
-            expect.objectContaining({ id: 1, name: 'Sweater', price: 650, quantity: 1 }),
-        ]);
+        expect(postSpy).toHaveBeenCalledWith('/cart/items/', { quantity: 1, product: 'sweater' });
+        await waitFor(() => expect(store.getState().cart.total).toBe('650.00'));
+        expect(store.getState().cart.items[0].product.slug).toBe('sweater');
     });
 
     it('locks subscription products and disables physical ones out of stock', async () => {

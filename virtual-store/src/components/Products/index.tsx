@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 import { addToCart } from '../Cart/cartSlice';
+import { selectCartItems } from '../Cart/cartSelectors';
+import { useAppSelector } from '../Hooks/hooks.ts';
+import type { RootState } from '../../store/store';
 import type { AppDispatch } from '../../store/store';
 import type { Category, Product } from '../interfaces/productParameters';
 import { useFetch } from '../../lib/useFetch';
@@ -10,7 +14,7 @@ import { StyledError } from '../Theme/components';
 import ProductCard from './ProductCard';
 import CategoryFilter from './CategoryFilter';
 import { StyledPager, StyledSectionProducts } from './styles';
-import { effectivePrice, productImage } from './productUtils';
+import type { ProductPreview } from '../interfaces/productParameters';
 
 /** Products per page. The backend accepts up to 10 (ProductPagination.max_page_size). */
 export const PAGE_SIZE = 3;
@@ -21,6 +25,10 @@ const Products = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
     const category = searchParams.get('category') ?? '';
+
+    const cartItems = useAppSelector(selectCartItems);
+    const pendingProducts = useAppSelector((state: RootState) => state.cart.pendingProducts);
+    const [cartErrors, setCartErrors] = useState<Record<string, string>>({});
 
     const { data, loading, error } = useFetch<Paginated<Product>>('/products/', {
         page,
@@ -44,16 +52,22 @@ const Products = () => {
     // A new category starts again on page 1
     const selectCategory = (slug: string) => updateParams({ category: slug, page: 1 });
 
-    const handleAddToCart = (product: Product) => {
-        dispatch(
-            addToCart({
-                id: product.id,
-                name: product.name,
-                img: productImage(product),
-                price: effectivePrice(product),
-                quantity: 1,
-            })
-        );
+    /** Why this product cannot be added right now (null = it can). */
+    const addBlockReason = (product: Product): string | null => {
+        if (product.access_type !== 'purchase') return 'Subscription only';
+        const inCart = cartItems.find((item) => item.product.slug === product.slug)?.quantity ?? 0;
+        if (product.product_type !== 'physical') return inCart >= 1 ? 'In cart' : null;
+        if (product.stock <= 0) return 'Out of stock';
+        return inCart >= product.stock ? 'Max in cart' : null;
+    };
+
+    const handleAddToCart = async (product: ProductPreview) => {
+        setCartErrors(({ [product.slug]: _, ...rest }) => rest);
+        try {
+            await dispatch(addToCart({ product: product.slug })).unwrap();
+        } catch (message) {
+            if (message) setCartErrors((prev) => ({ ...prev, [product.slug]: String(message) }));
+        }
     };
 
     const filter = categories && categories.length > 0 && (
@@ -94,7 +108,14 @@ const Products = () => {
             {filter}
             <StyledSectionProducts aria-busy={loading}>
                 {data.results.map((product) => (
-                    <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
+                    <ProductCard 
+                        key={product.id}
+                        product={product}
+                        onAddToCart={handleAddToCart}
+                        adding={pendingProducts.includes(product.slug)}
+                        blockReason={addBlockReason(product)}
+                        error={cartErrors[product.slug] ?? null}
+                    />
                 ))}
             </StyledSectionProducts>
             <StyledPager aria-label='Pagination'>

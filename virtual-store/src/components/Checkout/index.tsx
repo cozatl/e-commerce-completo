@@ -2,8 +2,8 @@ import { useDispatch } from "react-redux";
 import { FormContainer, Input, StyledDivComplete, StyledDivProducts, StyledDivTotal } from "./styles";
 import { AppDispatch } from "../../store/store";
 import { useAppSelector } from "../Hooks/hooks";
-import { useEffect, useState } from "react";
-import { selectCartItems, selectTotalPrice, selectTotalQty } from "../Cart/cartSelectors";
+import { useState } from "react";
+import { selectCartHasProblems, selectCartItems, selectTotalPrice, selectTotalQty } from "../Cart/cartSelectors";
 import { StyledCartItem } from "../Cart/styles";
 import { clearCart } from "../Cart/cartSlice";
 import { selectIsEnabledCheckout, selectPurchaseComplete } from "./checkoutSelectors";
@@ -18,11 +18,9 @@ const CheckOut = () => {
     const cartItems = useAppSelector(selectCartItems);
     const totalQty = useAppSelector(selectTotalQty);
     const totalPrice = useAppSelector(selectTotalPrice);
+    const hasProblems = useAppSelector(selectCartHasProblems);
     const isEnabledCheckout = useAppSelector(selectIsEnabledCheckout);
     const purchaseComplete = useAppSelector(selectPurchaseComplete);
-    useEffect(() => {
-        console.log('checkout',isEnabledCheckout);console.log('qty',totalQty);
-    }, [isEnabledCheckout]);
 
     // Track inputs locally
     const [formCard, setFormCard] = useState({
@@ -100,6 +98,7 @@ const CheckOut = () => {
         alert('All data was successfully stored!');
     };
 
+    // Simulated purchase until M4 (orders + billing): it just empties the server cart.
     const handleCheckout = () => {
         dispatch(clearCart());
         dispatch(setCheckout(false));
@@ -148,11 +147,13 @@ const CheckOut = () => {
                 </form>
             </FormContainer>
             <StyledDivProducts>
-                {cartItems.map(cart => (
-                    <StyledCartItem key={cart.id}>
-                        <img alt={`${cart.name}`} src={`${cart.img}`} />
-                        <p>{`${cart.name}`}</p>
-                        <p>$ {`${cart.price}`}</p>
+                {cartItems.map(item => (
+                    <StyledCartItem key={item.id}>
+                        {item.product.image
+                            ? <img alt={item.product.name} src={item.product.image} />
+                            : <span aria-hidden='true' />}
+                        <p>{item.product.name} × {item.quantity}</p>
+                        <p>$ {item.subtotal}</p>
                     </StyledCartItem>
                     )
                 )}
@@ -162,7 +163,7 @@ const CheckOut = () => {
                 </StyledDivTotal>
                 <button type='submit'
                         onClick={handleCheckout}
-                        disabled={ !isEnabledCheckout || totalQty <=0 }>Purchase
+                        disabled={ !isEnabledCheckout || totalQty <=0 || hasProblems }>Purchase
                 </button>
             </StyledDivProducts>
         </>

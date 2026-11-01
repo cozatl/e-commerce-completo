@@ -10,9 +10,11 @@ import {
 } from './productUtils';
 
 interface ProductCardProps {
-    product: ProductPreview | Product;
-    /** Only used in the catalog: visitors on the home page get a link instead. */
-    onAddToCart?: (product: Product) => void;
+    product: ProductPreview;                               // Product also fits (it extends ProductPreview)
+    onAddToCart?: (product: ProductPreview) => void;       // optional: the public preview has no cart
+    adding?: boolean;
+    blockReason?: string | null;
+    error?: string | null;
 }
 
 const isFullProduct = (product: ProductPreview | Product): product is Product =>
@@ -38,7 +40,7 @@ const PriceTag = ({ product }: { product: ProductPreview }) => {
 };
 
 /** What the button does depends on who is looking and how the product is obtained. */
-const CardAction = ({ product, onAddToCart }: ProductCardProps) => {
+const CardAction = ({ product, onAddToCart, adding = false, blockReason = null, error = null }: ProductCardProps) => {
     const isSubscription = product.access_type === 'subscription';
 
     // Home page preview: visitors are invited to log in or sign up
@@ -67,10 +69,19 @@ const CardAction = ({ product, onAddToCart }: ProductCardProps) => {
         );
     }
 
+    if (!onAddToCart) return null;   // public preview: no cart button
+
     return (
-        <button type='button' onClick={() => onAddToCart(product)}>
-            Add to Cart
-        </button>
+        <>
+            <button
+                type='button'
+                onClick={() => onAddToCart(product)}
+                disabled={adding || blockReason !== null}
+            >
+                {adding ? 'Adding...' : blockReason ?? 'Add to Cart'}
+            </button>
+            {error && <p role='alert'>{error}</p>}
+        </>
     );
 };
 

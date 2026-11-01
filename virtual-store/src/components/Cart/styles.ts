@@ -56,6 +56,10 @@ const StyledCart = styled.div<NavLinksProps>`
             padding: 15px 0;
         `)};
     }
+    > p[role='alert'] { // API error (stock limit, product no longer available...)
+        color: #ffb4a8;
+        text-align: center;
+    }
     ${BreakPoint7(css`
         width: ${props => ((props as any).$isOpen ? '100%' : '0%')}; // Add (props as any) to inherit parent props and avoid failures
     `)};
@@ -88,6 +92,15 @@ const StyledCartItem = styled.div`
     div:nth-child(5) { // Configure increment/decrement buttons
         flex-basis: 100%;
         text-align: center;
+    }
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    p[role='alert'] { // Item that can no longer be bought as is (stock dropped, deactivated...)
+        flex-basis: 100%;
+        color: #ffb4a8;
+        font-size: 0.9rem;
     }
     ${BreakPoint7(css`
         flex-direction: column;        
