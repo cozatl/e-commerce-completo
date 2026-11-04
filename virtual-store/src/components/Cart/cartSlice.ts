@@ -115,7 +115,7 @@ export const removeFromCart = createAsyncThunk<Cart, number, ThunkConfig>(
         )
 );
 
-/** DELETE /cart/ — empties the cart (also used by the simulated checkout until M4). */
+/** DELETE /cart/ — empties the cart. (Placing an order empties it on the server too.) */
 export const clearCart = createAsyncThunk<Cart, void, ThunkConfig>(
     'cart/clearCart',
     (_, { getState, rejectWithValue }) =>

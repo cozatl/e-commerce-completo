@@ -1,29 +1,20 @@
 import { configureStore, createListenerMiddleware, isAnyOf } from "@reduxjs/toolkit";
-import {
-    persistStore,
-    persistReducer
-} from "redux-persist";
-import storage from "redux-persist/lib/storage";     // npm install redux-persist (Correct way to set localStorage up in redux)
+import { persistStore } from "redux-persist";
 import cartReducer, { fetchCart } from "../components/Cart/cartSlice";
 import menuReducer from "../components/NavBar/navBarSlice";
 // import productReducer from "../components/Products/productSlice";
 import authReducer, { loginUser, logout, registerUser, restoreSession, tokensRefreshed } from "../components/Auth/authSlice";
-import checkoutReducer from "../components/Checkout/checkoutSlice";
 import { setAccessTokenGetter, setSessionHandlers } from "../lib/api";
 
 // The cart is NOT persisted: it lives on the server (one per user) and is loaded after
 // login, register and session restore. Persisting it leaked one user's cart to the next.
 // Remove the copy that older versions left in localStorage.
+// M4: the simulated checkout state (persist:checkout) is gone too; orders live on the server.
 try {
     localStorage.removeItem('persist:cart');
+    localStorage.removeItem('persist:checkout');
 } catch {
     // localStorage unavailable (private mode, SSR, tests): nothing to clean
-}
-
-const checkoutPersistConfig = {
-    key:'checkout',
-    storage,
-    whitelist:['isEnabledCheckout'],
 }
 
 // Load the user's cart as soon as a session starts (logout resets it inside cartSlice).
@@ -36,12 +27,6 @@ sessionListener.startListening({
     },
 });
 
-// Configure persisted Reducer to set data in localStorage only for specific elements
-const persistedCheckoutReducer = persistReducer(
-    checkoutPersistConfig,
-    checkoutReducer,
-)
-
 export const store = configureStore ({
     reducer: {
         cart: cartReducer,              // Not persisted: comes from GET /cart/
@@ -50,8 +35,6 @@ export const store = configureStore ({
         // auth is NOT persisted with redux-persist: the access token only lives in memory and
         // the session is restored from the refresh token (lib/tokenStorage) when the app loads.
         auth: authReducer,
-        checkout: persistedCheckoutReducer,
-        // checkout: checkoutReducer,
     },
 
 // Skip errors for redux localStorage

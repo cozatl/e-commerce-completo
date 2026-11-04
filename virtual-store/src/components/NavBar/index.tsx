@@ -37,6 +37,16 @@ const Navbar = () => {
                     <StyledNavLink to="/profile" onClick={() => handleMenuToggle(false)}>Profile</StyledNavLink>
                 </li>
             )}
+            {isAuthenticated && (
+                <li>
+                    <StyledNavLink to="/orders" onClick={() => handleMenuToggle(false)}>My orders</StyledNavLink>
+                </li>
+            )}
+            {isAuthenticated && (
+                <li>
+                    <StyledNavLink to="/addresses" onClick={() => handleMenuToggle(false)}>Addresses</StyledNavLink>
+                </li>
+            )}
             <li>
                 <StyledNavLink to="/about">About&nbsp;&nbsp;&nbsp;&#x25BC;</StyledNavLink>
                 <ul>

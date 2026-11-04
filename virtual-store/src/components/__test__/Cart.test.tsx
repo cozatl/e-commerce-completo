@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Provider } from 'react-redux';
@@ -220,6 +220,19 @@ describe('cartSlice thunks', () => {
 });
 
 describe('Cart component', () => {
+    it('reloads the cart from the server each time the drawer opens', async () => {
+        const store = makeStore({ open: false });
+        renderCart(store);
+        expect(apiMock.get).not.toHaveBeenCalled(); // closed: nothing to load
+
+        apiMock.get.mockResolvedValueOnce(cartWith([physical]));
+        act(() => {
+            store.dispatch(toggleCart());
+        });
+        await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/cart/'));
+        expect(await screen.findByText(physical.product.name)).toBeInTheDocument();
+    });
+
     it('renders the server items, subtotals and total', () => {
         renderCart(makeStore({ cart: cartWith([physical, ebook]) }));
         expect(screen.getByText('Mouse')).toBeInTheDocument();

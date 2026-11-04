@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AppDispatch } from '../../store/store.ts';
 import { useAppSelector } from '../Hooks/hooks.ts';
 import { images } from '../utils/images.ts';
 import { StyledCart, StyledCartItem } from './styles.ts';
-import { clearCartError, removeFromCart, toggleCart, updateCartItem } from './cartSlice.ts';
+import { clearCartError, fetchCart, removeFromCart, toggleCart, updateCartItem } from './cartSlice.ts';
 import {
     selectCartError,
     selectCartHasProblems,
@@ -118,6 +118,20 @@ const Cart = () => {
     const hasProblems = useAppSelector(selectCartHasProblems);
     const error = useAppSelector(selectCartError);
     const pendingIds = useAppSelector(selectPendingItemIds);
+
+    // The cart can change behind the user's back (an expired order puts its products
+    // back, stock changes...): reload it from the server when the drawer opens and on
+    // every page change. Not on mount: the session listener in store.ts already loads it.
+    const { pathname } = useLocation();
+    const wasOpen = useRef(isCartOpen);
+    const lastPath = useRef(pathname);
+    useEffect(() => {
+        const opened = isCartOpen && !wasOpen.current;
+        const navigated = pathname !== lastPath.current;
+        wasOpen.current = isCartOpen;
+        lastPath.current = pathname;
+        if ((opened || navigated) && isAuthenticated) dispatch(fetchCart());
+    }, [isCartOpen, pathname, isAuthenticated, dispatch]);
 
     const goTo = (path: string) => {
         navigate(path);

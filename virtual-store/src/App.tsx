@@ -14,6 +14,9 @@ import { Route, Routes } from "react-router-dom";
 import SignUpPage from "./components/SignUp";
 import ProfilePage from "./components/Profile";
 import CheckOut from "./components/Checkout";
+import OrdersPage from "./components/Orders";
+import OrderDetail from "./components/Orders/OrderDetail";
+import AddressesPage from "./components/Addresses";
 import type { AppDispatch } from "./store/store";
 
 
@@ -40,6 +43,9 @@ function App() {
                         <Route path='/store' element= { <Products /> } />
                         <Route path='/checkout' element= { <CheckOut />} />
                         <Route path='/profile' element= { <ProfilePage />} />
+                        <Route path='/addresses' element= { <AddressesPage />} />
+                        <Route path='/orders' element= { <OrdersPage />} />
+                        <Route path='/orders/:orderId' element= { <OrderDetail />} />
                     </Route>
                 </Routes>
                 <Cart />
