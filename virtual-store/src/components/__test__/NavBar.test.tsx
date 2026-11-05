@@ -1,136 +1,114 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import menuReducer, { toggleMenu } from '../NavBar/navBarSlice';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
 import { IDLE } from '../../store/status';
 import { ThemeProvider } from 'styled-components';
 import Theme from '../Theme';
-import { BrowserRouter } from 'react-router-dom';
-import LoginPage from '../Auth';
+import { MemoryRouter } from 'react-router-dom';
 import Navbar from '../NavBar';
-import { login, logout } from '../Auth/authSlice';
+import { getRefreshToken, setRefreshToken } from '../../lib/tokenStorage';
+import { setAccessTokenGetter, setSessionHandlers } from '../../lib/api';
+import { bodyOf, mockApiRoutes } from '../../lib/__test__/mockAdapter';
+import { loggedIn, makeStore } from './testStore';
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-    const actual = await vi.importActual('react-router-dom');
-    return {
-        ...actual,
-        useNavigate: () => mockNavigate,
-    };
-});
-
-const mockStore = configureStore([]);
-
-const initialAuthState = {
+const initialMenuState = {
     isMenuOpen: false,
     // history: [],
     status: IDLE,
     errors: {},
 };
 
-describe('Auth Component', () => {    
-  it('shouldn\'t authenticate the user if credentials are invalid while log in', () => {
-
-    const nextState = menuReducer(initialAuthState, toggleMenu());
-
-    expect(nextState.isMenuOpen).toBe(true);
-  });
-
-  it('should dispatch toggleMenu and logout when clicking Sing Out while user is authenticated', async () => {
-        // Initialize user-event session
-        const user = userEvent.setup();
-        // Define global state which will be read by useSelector
-        const store = mockStore({
-        auth: { isAuthenticated: true }
-        });
-        
-        const dispatchSpy = vi.spyOn(store, 'dispatch');
-        render(
+const renderNavbar = (store: ReturnType<typeof makeStore>) =>
+    render(
         <ThemeProvider theme={Theme}>
-            <BrowserRouter>
-            <Provider store={store}>
-                <Navbar
-                />
-            </Provider>
-            </BrowserRouter>
+            <MemoryRouter>
+                <Provider store={store}>
+                    <Navbar />
+                </Provider>
+            </MemoryRouter>
         </ThemeProvider>
-        ); 
+    );
 
-        const signOutLink = screen.getByRole('link', { name: /Sign Out/i });  // Find Menu button link
+beforeEach(() => {
+    localStorage.clear();
+});
 
-        // Simulate human clicking interaction
+afterEach(() => {
+    setAccessTokenGetter(() => null);
+    setSessionHandlers({});
+});
+
+describe('NavBar Component', () => {
+    it('toggles the menu state', () => {
+        const nextState = menuReducer(initialMenuState, toggleMenu());
+
+        expect(nextState.isMenuOpen).toBe(true);
+    });
+
+    it('signs out: clears the session at once and blacklists the refresh token on the server', async () => {
+        const user = userEvent.setup();
+        setRefreshToken('refresh-1');
+        const calls = mockApiRoutes(() => ({ status: 205 }));
+        const store = makeStore(loggedIn());
+        renderNavbar(store);
+
+        const signOutLink = screen.getByRole('link', { name: /Sign Out/i });
+        // Home and Profile are for logged in users; Sign up is not
+        expect(screen.getByRole('link', { name: /Profile/i })).toHaveAttribute('href', '/profile');
+        expect(screen.queryByRole('link', { name: /Sign up/i })).not.toBeInTheDocument();
+
         await user.click(signOutLink);
 
-        // Validate that dispatch was executed
-        expect(dispatchSpy).toHaveBeenCalled();
-        expect(dispatchSpy).toHaveBeenCalledWith(logout());
-        expect(dispatchSpy).toHaveBeenCalledWith(toggleMenu());
-        // Validate that navigate('/store') was called after finding the user
-        expect(signOutLink).toHaveAttribute('href', '/store');
+        expect(store.getState().menu.isMenuOpen).toBe(true); // toggleMenu was dispatched
+        expect(store.getState().auth.isAuthenticated).toBe(false);
+        expect(store.getState().auth.accessToken).toBeNull();
+        expect(getRefreshToken()).toBeNull();
+
+        await waitFor(() => expect(calls).toHaveLength(1));
+        expect(calls[0].url).toBe('/logout');
+        expect(bodyOf(calls[0])).toEqual({ refresh: 'refresh-1' });
     });
 
-    it('should dispatch toggleMenu and logout when clicking Sing Out while user is authenticated', async () => {
-        // Initialize user-event session
+    it('still signs out locally if the server cannot be reached', async () => {
         const user = userEvent.setup();
-        // Define global state which will be read by useSelector
-        const store = mockStore({
-        auth: { isAuthenticated: false }
-        });
-        
-        const dispatchSpy = vi.spyOn(store, 'dispatch');
-        render(
-        <ThemeProvider theme={Theme}>
-            <BrowserRouter>
-            <Provider store={store}>
-                <Navbar
-                />
-            </Provider>
-            </BrowserRouter>
-        </ThemeProvider>
-        ); 
+        setRefreshToken('refresh-1');
+        mockApiRoutes(() => ({ status: 503 }));
+        const store = makeStore(loggedIn());
+        renderNavbar(store);
 
-        const signInLink = screen.getByRole('link', { name: /Sign In/i });  // Find Menu button link
+        await user.click(screen.getByRole('link', { name: /Sign Out/i }));
 
-        // Simulate human clicking interaction
+        await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(false));
+        expect(getRefreshToken()).toBeNull();
+    });
+
+    it('shows Sign In and Sign up (and no Profile) to visitors', async () => {
+        const user = userEvent.setup();
+        const calls = mockApiRoutes(() => ({ status: 200 }));
+        const store = makeStore();
+        renderNavbar(store);
+
+        const signInLink = screen.getByRole('link', { name: /Sign In/i });
+        expect(signInLink).toHaveAttribute('href', '/login');
+        expect(screen.getByRole('link', { name: /Sign up/i })).toHaveAttribute('href', '/sign-up');
+        expect(screen.queryByRole('link', { name: /Profile/i })).not.toBeInTheDocument();
+
         await user.click(signInLink);
 
-        // Validate that dispatch was executed
-        expect(dispatchSpy).toHaveBeenCalled();
-        expect(dispatchSpy).not.toHaveBeenCalledWith(logout);
-        expect(dispatchSpy).toHaveBeenCalledWith(toggleMenu());
-        // Validate that href is present ('/')
-        expect(signInLink).toHaveAttribute('href', '/');
+        expect(store.getState().menu.isMenuOpen).toBe(true);
+        expect(calls).toHaveLength(0); // nothing to sign out of
     });
 
-    it('should dispatch toggleMenu and logout when clicking Sing Out while user is authenticated', async () => {
-        // Initialize user-event session
+    it('closes the menu when clicking Home', async () => {
         const user = userEvent.setup();
-        // Define global state which will be read by useSelector
-        const store = mockStore({
-        auth: { isAuthenticated: true }
-        });
-        
-        const dispatchSpy = vi.spyOn(store, 'dispatch');
-        render(
-        <ThemeProvider theme={Theme}>
-            <BrowserRouter>
-            <Provider store={store}>
-                <Navbar
-                />
-            </Provider>
-            </BrowserRouter>
-        </ThemeProvider>
-        ); 
+        const store = makeStore(loggedIn());
+        renderNavbar(store);
 
-        const homeLink = screen.getByRole('link', { name: /Home/i });  // Find Menu button link
+        await user.click(screen.getByRole('link', { name: /Home/i }));
 
-        // Simulate human clicking interaction
-        await user.click(homeLink);
-
-        // Validate that dispatch was executed
-        expect(dispatchSpy).toHaveBeenCalled();
-        expect(dispatchSpy).toHaveBeenCalledWith(toggleMenu());
+        expect(store.getState().menu.isMenuOpen).toBe(true);
+        expect(store.getState().auth.isAuthenticated).toBe(true);
     });
 });

@@ -80,12 +80,12 @@ const StyledButton = styled.button<{disabled?:boolean, loading?:boolean}>`
       disabled ? theme.colors.bgBtnDisabledColor : 'gray'
     };
 
-    background: ${({loading, theme}) => 
+    background: ${({loading}) => 
       loading ? '#2a2d3a' : '#4a7fa5'
     };
     transition: background 0.2s;
 
-    cursor: ${({loading, theme}) => 
+    cursor: ${({loading}) => 
       loading ? 'not-allowed' : 'pointer'
     };
 

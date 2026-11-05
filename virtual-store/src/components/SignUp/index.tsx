@@ -1,31 +1,44 @@
 import { useDispatch } from "react-redux";
-import { Button, FormContainer, Input } from "./styles";
+import { FormContainer, Input } from "./styles";
 import { AppDispatch } from "../../store/store";
-import { selectSignUpUser } from "./signUpSelectors";
 import { useAppSelector } from "../Hooks/hooks";
-import { addUsers } from "./signUpSlice";
 import { useEffect, useState } from "react";
-import { UserSignUp } from "../interfaces/signUpParameters";
 import { useNavigate } from "react-router-dom";
+import { StyledError } from "../Theme/components";
+import { clearAuthError, registerUser } from "../Auth/authSlice";
+import { selectAuthError, selectAuthStatus, selectIsAuthenticated } from "../Auth/authSelectors";
+import { LOADING } from "../../store/status";
 
 const SignUpPage = () => {
     // variable to navigate to one path by clicking a button
     const navigate = useNavigate();
     const dispatch = useDispatch<AppDispatch>();
 
-    const signUpUsers = useAppSelector(selectSignUpUser);
-
-    useEffect(() => {
-        console.log(signUpUsers);
-    }, [signUpUsers]);
+    const isAuthenticated = useAppSelector(selectIsAuthenticated);
+    const status = useAppSelector(selectAuthStatus);
+    const serverError = useAppSelector(selectAuthError);
+    const loading = status === LOADING;
 
     // Track inputs locally
     const [formData, setFormData] = useState({
-        name: '',
-        user: '',
+        full_name: '',
+        email: '',
         password: '',
         confirmPassword: '',
     });
+    const [formError, setFormError] = useState('');
+
+    // Do not show an error left over from another page (e.g. a failed login)
+    useEffect(() => {
+        dispatch(clearAuthError());
+    }, [dispatch]);
+
+    // The backend returns tokens on register, so a new customer is logged in and goes to the store
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/store', { replace: true });
+        }
+    }, [isAuthenticated, navigate]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target; // Use current form name field to get all fields with 1 instruction
@@ -34,78 +47,76 @@ const SignUpPage = () => {
             [name]: value,
         }));
     };
+
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        // Validate password confirmation match before dispatching
+        setFormError('');
+
+        // Validate password confirmation match before sending anything
         if (formData.password !== formData.confirmPassword) {
-            alert('Passwords do not match!');
+            setFormError('Passwords do not match!');
             return;
         }
 
-        // Validate only unique users (using Redux data)
-        const usernameClean = formData.user.trim().toLowerCase();
-        const userExists = signUpUsers.some(u => u.user.toLowerCase() === usernameClean);
-
-        if (userExists) {
-            alert("User name is already registered.");
-            return;
-        }
-
-        // Calculate max ID + 1
-        const nextId = signUpUsers.length > 0 
-            ? Math.max(...signUpUsers.map(u => u.id)) + 1 
-            : 1; // If list is empty, fisrt Id will be 1
-
-        // Send only required data to newUser
-        const newUserRecord: UserSignUp = {
-            id: nextId,
-            name: formData.name,
-            user: formData.user,
-            password: formData.password
-        };
-
-        console.log("Data ready to be sent!");
-        dispatch(addUsers(newUserRecord));        
-        alert("User successfully added.");
-
-        // Clean form
-        setFormData({ name: '', user: '', password: '', confirmPassword: '' });
-
-        navigate('/');
+        // Only these three fields are sent. is_staff & co. are never part of a sign up.
+        dispatch(registerUser({
+            full_name: formData.full_name.trim(),
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+        }));
     }
+
+    const error = formError || serverError;
 
     return (
         <FormContainer>
             <form onSubmit={handleSubmit}>
                 <Input
                     type='text'
-                    name='name'
-                    placeholder='name'
-                    value={formData.name} 
-                    onChange={handleChange} 
+                    name='full_name'
+                    placeholder='full name'
+                    aria-label='Full name'
+                    autoComplete='name'
+                    required
+                    value={formData.full_name}
+                    onChange={handleChange}
+                    disabled={loading}
                 />
                 <Input
-                    type='text'
-                    name='user'
-                    placeholder='user'
-                    value={formData.user}
-                    onChange={handleChange} 
+                    type='email'
+                    name='email'
+                    placeholder='email'
+                    aria-label='Email'
+                    autoComplete='email'
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={loading}
                 />
                 <Input
                     type='password'
                     name='password'
                     placeholder='password'
+                    aria-label='Password'
+                    autoComplete='new-password'
+                    required
                     value={formData.password}
                     onChange={handleChange}
+                    disabled={loading}
                 />
                 <Input
                     type='password'
                     name='confirmPassword'
                     placeholder='confirm password'
+                    aria-label='Confirm password'
+                    autoComplete='new-password'
+                    required
                     value={formData.confirmPassword}
-                    onChange={handleChange} 
+                    onChange={handleChange}
+                    disabled={loading}
                 />
-                <button type='submit'>Sign Up</button>
+                {error && <StyledError role='alert'>{error}</StyledError>}
+                <button type='submit' disabled={loading}>{loading ? 'Creating account...' : 'Sign Up'}</button>
             </form>
         </FormContainer>
     )

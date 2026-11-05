@@ -1,18 +1,15 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
-import { UserSignUp } from '../interfaces/signUpParameters';
-import { IDLE } from '../../store/status';
 import { ThemeProvider } from 'styled-components';
 import Theme from '../Theme';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import SignUpPage from '../SignUp';
-import signUpReducer, { addUsers } from '../SignUp/signUpSlice';
-
-const mockStore = configureStore([]);
-
+import { getRefreshToken } from '../../lib/tokenStorage';
+import { setAccessTokenGetter, setSessionHandlers } from '../../lib/api';
+import { bodyOf, mockApiRoutes } from '../../lib/__test__/mockAdapter';
+import { makeStore, profile } from './testStore';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -23,153 +20,85 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-type SignUpState = {
-    user: UserSignUp[],
-    status: string,
-    errors: {}
-    
-};
-
-const initialSignupState: SignUpState = {
-    user: [],
-    status: IDLE,
-    errors: {},
-};
-
-describe('Auth Component', () => {
-  it('should register one user and dispatch addUsers', async () => {
-    // Initialize user-event session
-    const user = userEvent.setup();
-    // Define global state which will be read by useSelector
-    const store = mockStore({
-      signUp: { user: [{ id: 1, user: 'jesus', name: 'Jesus', password: '123' }]}
-    });
-    
-    const dispatchSpy = vi.spyOn(store, 'dispatch');
+const renderSignUp = (store: ReturnType<typeof makeStore>) =>
     render(
-      <ThemeProvider theme={Theme}>
-        <BrowserRouter>
-        <Provider store={store}>
-            <SignUpPage
-            />
-        </Provider>
-        </BrowserRouter>
-      </ThemeProvider>
-    ); 
-    
-    const nameInput = screen.getByPlaceholderText(/name/i);
-    const userInput = screen.getByPlaceholderText(/user/i);
-    const passwordInput = screen.getByPlaceholderText('password');
-    const confirmPasswordInput = screen.getByPlaceholderText('confirm password');
-    const btnSubmit = screen.getByRole('button', { name: /Sign Up/i });
-
-    // Simulate user inputs were filled and ready to be submitted
-    await user.type(nameInput, 'Jesus Cozatl');
-    await user.type(userInput, 'admin');
-    await user.type(passwordInput, 'admin');
-    await user.type(confirmPasswordInput, 'admin');
-
-    // Simulate human clicking interaction
-    await user.click(btnSubmit);
-
-    // Validate that dispatch was executed
-    expect(dispatchSpy).toHaveBeenCalled();
-
-    // Validate if dispatched action was correct
-    expect(dispatchSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: expect.stringContaining('addUsers'),
-        payload: {
-          id: 2,
-          name: 'Jesus Cozatl',
-          user: 'admin',
-          password: 'admin'
-        }
-      })
+        <ThemeProvider theme={Theme}>
+            <MemoryRouter>
+                <Provider store={store}>
+                    <SignUpPage />
+                </Provider>
+            </MemoryRouter>
+        </ThemeProvider>
     );
-  });
-  
-  it('should alert if passwords don\'t match', async () => {
-    // Initialize user-event session
-    const user = userEvent.setup();
-    const alertSpy = (vi.spyOn(window, 'alert').mockImplementation(() => {}))
-    // Define global state which will be read by useSelector
-    const store = mockStore({
-      signUp: { user: []}
-    });
-    
-    render(
-      <ThemeProvider theme={Theme}>
-        <BrowserRouter>
-        <Provider store={store}>
-            <SignUpPage
-            />
-        </Provider>
-        </BrowserRouter>
-      </ThemeProvider>
-    ); 
-    
-    // Simulate user inputs were filled and ready to be submitted
-    await user.type(screen.getByPlaceholderText(/name/i), 'Jesus Cozatl');
-    await user.type(screen.getByPlaceholderText('password'), 'admin');
-    await user.type(screen.getByPlaceholderText('confirm password'), 'admin1');
-    const btnSubmit = screen.getByRole('button', { name: /Sign Up/i });
 
-    // Simulate human clicking interaction
-    await user.click(btnSubmit);
+const fill = async (user: ReturnType<typeof userEvent.setup>, password = 'Clave-segura-123', confirm = password) => {
+    await user.type(screen.getByLabelText('Full name'), 'Jesus Cozatl');
+    await user.type(screen.getByLabelText('Email'), 'Jesus@Example.com');
+    await user.type(screen.getByLabelText('Password'), password);
+    await user.type(screen.getByLabelText('Confirm password'), confirm);
+};
 
-    // Validate if alert is displayed
-    expect(alertSpy).toHaveBeenCalledWith('Passwords do not match!');
-  });
-
-  it('should alert if user already exists', async () => {
-    // Initialize user-event session
-    const user = userEvent.setup();
-    const alertSpy = (vi.spyOn(window, 'alert').mockImplementation(() => {}))
-    // Define global state which will be read by useSelector
-    const store = mockStore({
-      signUp: { user: [{ id: 1, user: 'jesus', name: 'Jesus', password: '123' }]}
-    });
-    
-    render(
-      <ThemeProvider theme={Theme}>
-        <BrowserRouter>
-        <Provider store={store}>
-            <SignUpPage
-            />
-        </Provider>
-        </BrowserRouter>
-      </ThemeProvider>
-    ); 
-    
-    // Simulate user inputs were filled and ready to be submitted
-    await user.type(screen.getByPlaceholderText(/name/i), 'Jesus');
-    await user.type(screen.getByPlaceholderText(/user/i), 'jesus');
-    await user.type(screen.getByPlaceholderText('password'), '123');
-    await user.type(screen.getByPlaceholderText('confirm password'), '123');
-    const btnSubmit = screen.getByRole('button', { name: /Sign Up/i });
-
-    // Simulate human clicking interaction
-    await user.click(btnSubmit);
-
-    // Validate if alert is displayed
-    expect(alertSpy).toHaveBeenCalledWith('User name is already registered.');
-  });
-
-  it('should add one user to the state', async () => {    
-    // Define global state which will be read by useSelector
-    const newUser ={ id: 1, user: 'jesus', name: 'Jesus', password: '123' };
-
-    const nextState = signUpReducer(initialSignupState, addUsers(newUser));
-
-    // Validate if alert is displayed
-    expect(nextState.user).toHaveLength(1);
-    expect(nextState.user[0]).toEqual(newUser);
-  });
-
-  
+beforeEach(() => {
+    localStorage.clear();
+    mockNavigate.mockClear();
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+    setAccessTokenGetter(() => null);
+    setSessionHandlers({});
+});
+
+describe('SignUp page', () => {
+    it('registers through the API with only email, full name and password, and logs the customer in', async () => {
+        const user = userEvent.setup();
+        const calls = mockApiRoutes((config) =>
+            config.url === '/register'
+                ? { status: 201, data: { access: 'access-1', refresh: 'refresh-1' } }
+                : { status: 200, data: profile }
+        );
+        const store = makeStore();
+        renderSignUp(store);
+
+        await fill(user);
+        await user.click(screen.getByRole('button', { name: /sign up/i }));
+
+        await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(true));
+
+        expect(calls[0].url).toBe('/register');
+        // confirmPassword is a UI-only field and nothing privileged is ever sent
+        expect(bodyOf(calls[0])).toEqual({
+            full_name: 'Jesus Cozatl',
+            email: 'jesus@example.com',
+            password: 'Clave-segura-123',
+        });
+        expect(getRefreshToken()).toBe('refresh-1');
+        expect(mockNavigate).toHaveBeenCalledWith('/store', { replace: true });
+    });
+
+    it('shows a message and sends nothing if the passwords do not match', async () => {
+        const user = userEvent.setup();
+        const calls = mockApiRoutes(() => ({ status: 201, data: {} }));
+        renderSignUp(makeStore());
+
+        await fill(user, 'Clave-segura-123', 'otra-cosa');
+        await user.click(screen.getByRole('button', { name: /sign up/i }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Passwords do not match!');
+        expect(calls).toHaveLength(0);
+    });
+
+    it('shows the validation errors returned by the API (duplicate email)', async () => {
+        const user = userEvent.setup();
+        mockApiRoutes(() => ({ status: 400, data: { email: ['A user with this email already exists.'] } }));
+        const store = makeStore();
+        renderSignUp(store);
+
+        await fill(user);
+        await user.click(screen.getByRole('button', { name: /sign up/i }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('A user with this email already exists.');
+        expect(store.getState().auth.isAuthenticated).toBe(false);
+        expect(getRefreshToken()).toBeNull();
+        expect(mockNavigate).not.toHaveBeenCalled();
+    });
 });

@@ -1,5 +1,5 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { FAILED, IDLE, SUCCEEDED } from "../../store/status";
+import { createSlice } from "@reduxjs/toolkit";
+import { IDLE, SUCCEEDED } from "../../store/status";
 
 
 const initialState = {

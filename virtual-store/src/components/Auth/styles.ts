@@ -1,6 +1,6 @@
 'use client'; // Required in the App Router for client-side hooks and avoids hydrated error
 import styled from "styled-components";
-import { BoxSizing, FlexBox, Fonts } from "../Theme/mixins";
+import { BoxSizing, FlexBox } from "../Theme/mixins";
 
 const StyledMain = styled.main`
     min-height: 100vh;

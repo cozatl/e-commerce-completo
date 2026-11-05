@@ -4,33 +4,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import Header from '../Header/index';
-import { CartItem } from '../interfaces/cartParameters';
-import { IDLE } from '../../store/status';
+import cartReducer from '../Cart/cartSlice';
 import { ThemeProvider } from 'styled-components';
 import Theme from '../Theme';
 import { BrowserRouter } from 'react-router-dom';
 
 const mockStore = configureStore([]);
 
-const mockImages = {
-  'menu.svg': 'menu-mock.svg',
-  'logo.jpg': 'logo-mock.jpg',
-  'cart.jpg': 'cart-mock.jpg',
-};
-
-type CartElements = {
-    isCartOpen: boolean,
-    items: CartItem[],
-    status: string,
-    errors: {}
-};
-
-const initialCartState: CartElements = {
-    isCartOpen: false,
-    items: [],
-    status: IDLE,
-    errors: {},
-};
+// Real initial cart state; the count shown in the header comes from the server total.
+const initialCartState = cartReducer(undefined, { type: '@@INIT' });
 
 describe('Header Component', () => {
   it('renders app name and cart count correctly when authenticated', async () => {
@@ -39,7 +21,7 @@ describe('Header Component', () => {
     // Define global state which will be read by useSelector
     const store = mockStore({
       auth: { isAuthenticated: true },
-      cart: { ...initialCartState, items:[{quantity: 5}] },
+      cart: { ...initialCartState, totalQuantity: 5 },
       menu: { isOpen: false }
     });
     
@@ -58,6 +40,7 @@ describe('Header Component', () => {
     
     const headerTitle = screen.getByText(`${title}`); // Validate title is displayed
     expect(headerTitle).toBeInTheDocument();
+    expect(screen.getByText('5')).toBeInTheDocument(); // cart count from the server total
     
     const btnMenu = screen.getByRole('img', { name: /Menu Icon/i });  // Find Menu Icon
 
@@ -72,7 +55,7 @@ describe('Header Component', () => {
     // Define global state which will be read by useSelector
     const store = mockStore({
       auth: { isAuthenticated: true },
-      cart: { ...initialCartState, items:[{quantity: 5}] },
+      cart: { ...initialCartState, totalQuantity: 5 },
       menu: { isOpen: false }
     });
     const dispatchSpy = vi.spyOn(store, 'dispatch');

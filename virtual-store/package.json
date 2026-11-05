@@ -19,6 +19,7 @@
     "@fontsource/montserrat": "^5.2.8",
     "@reduxjs/toolkit": "^2.12.0",
     "@testing-library/user-event": "^14.6.1",
+    "axios": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-icons": "^5.6.0",
@@ -41,5 +42,8 @@
     "typescript": "^6.0.3",
     "vite": "^6.4.3",
     "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
   }
 }
