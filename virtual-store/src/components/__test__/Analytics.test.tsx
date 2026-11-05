@@ -133,10 +133,10 @@ describe('Navbar reports link', () => {
 
     it('is visible for staff only', () => {
         const { unmount } = renderNav();
-        expect(screen.getByRole('link', { name: 'Reportes' })).toHaveAttribute('href', '/staff/analytics');
+        expect(screen.getByRole('link', { name: 'Reports' })).toHaveAttribute('href', '/staff/analytics');
         unmount();
         renderNav(profile);
-        expect(screen.queryByRole('link', { name: 'Reportes' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Reports' })).not.toBeInTheDocument();
     });
 });
 
