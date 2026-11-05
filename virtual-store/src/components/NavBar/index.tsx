@@ -1,6 +1,6 @@
 
 import { useDispatch } from 'react-redux';
-import { selectIsAuthenticated } from '../Auth/authSelectors';
+import { selectCurrentUser, selectIsAuthenticated } from '../Auth/authSelectors';
 import { useAppSelector } from '../Hooks/hooks';
 import { toggleMenu } from './navBarSlice';
 import { NavLinks,  StyledNavLink } from './styles';
@@ -12,6 +12,7 @@ const Navbar = () => {
     const dispatch = useDispatch<AppDispatch>();
 
     const isAuthenticated = useAppSelector(selectIsAuthenticated);
+    const user = useAppSelector(selectCurrentUser);
 
     const handleMenuToggle = (validateLogin: boolean) => {
         dispatch(toggleMenu());
@@ -45,6 +46,11 @@ const Navbar = () => {
             {isAuthenticated && (
                 <li>
                     <StyledNavLink to="/addresses" onClick={() => handleMenuToggle(false)}>Addresses</StyledNavLink>
+                </li>
+            )}
+            {isAuthenticated && user?.is_staff && (
+                <li>
+                    <StyledNavLink to="/staff/analytics" onClick={() => handleMenuToggle(false)}>Reports</StyledNavLink>
                 </li>
             )}
             <li>

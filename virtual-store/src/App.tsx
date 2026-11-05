@@ -17,6 +17,7 @@ import CheckOut from "./components/Checkout";
 import OrdersPage from "./components/Orders";
 import OrderDetail from "./components/Orders/OrderDetail";
 import AddressesPage from "./components/Addresses";
+import AnalyticsPage from "./components/Analytics";
 import type { AppDispatch } from "./store/store";
 
 
@@ -46,6 +47,10 @@ function App() {
                         <Route path='/addresses' element= { <AddressesPage />} />
                         <Route path='/orders' element= { <OrdersPage />} />
                         <Route path='/orders/:orderId' element= { <OrderDetail />} />
+                    </Route>
+                    {/* Staff only (M5): sales reports */}
+                    <Route element={<ProtectedRoute requireStaff />}>
+                        <Route path='/staff/analytics' element= { <AnalyticsPage /> } />
                     </Route>
                 </Routes>
                 <Cart />
